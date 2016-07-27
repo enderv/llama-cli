@@ -9,7 +9,7 @@ AWS.config.region = llamaConfig.region || 'eu-west-1';
 exports.handler = function(event, context) {
 console.log('Chaos Llama starting up');
 
-if (llamaConfig.probability) {
+if (llamaConfig.probability && event.InvokeType != "CommandLine") {
   if (randomIntFromInterval(1,100) >= llamaConfig.probability && llamaConfig.probability != 100) {
     console.log('Probability says it is not chaos time');
     return context.done(null,null);
@@ -17,8 +17,40 @@ if (llamaConfig.probability) {
 }
 
 var ec2 = new AWS.EC2();
+var asg = new AWS.AutoScaling();
 
-ec2.describeInstances(function(err, data) {
+if(event.InvokeType == "CommandLine" && typeof(event.AutoScalingGroup) !== 'undefined' ){
+  asg.describeAutoScalingGroups({'AutoScalingGroupNames':[event.AutoScalingGroup]}, function(err, data){
+    if (err) {
+      return context.done(err, null);
+    }
+    var candidates = data.AutoScalingGroups[0].Instances;
+
+    console.log('candidates: %j', candidates);
+    var numInstances = candidates.length;
+
+    if (numInstances === 0) {
+      console.log('No suitable instances found');
+      return context.done(null);
+    }
+
+    var random = Math.floor(Math.random() * numInstances);
+    var target = candidates[random];
+
+    console.log('Going to terminate instance with id = %s', target.InstanceId);
+
+    ec2.terminateInstances({InstanceIds:[target.InstanceId]}, function(err, data) {
+      if (err) {
+        return context.done(err, null);
+      }
+
+      console.log('Instance %s terminated', target.InstanceId);
+      return context.done(null, data);
+    })
+  })  
+}
+else{
+  ec2.describeInstances(function(err, data) {
   if (err) {
     return context.done(err, null);
   }
@@ -73,6 +105,7 @@ ec2.describeInstances(function(err, data) {
     return context.done(null, data);
   });
 });
+}
 };
 
 function randomIntFromInterval(min,max)
