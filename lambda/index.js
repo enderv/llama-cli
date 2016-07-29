@@ -106,6 +106,7 @@ function slackNotifier(type, message){
   }
   var options = {
     uri:url,
+    method: "POST",
     body:{
         "username": "chaos-llama",
           "icon_emoji": ":ghost:",
