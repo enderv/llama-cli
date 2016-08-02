@@ -76,14 +76,14 @@ ec2.describeInstances(function(err, data) {
 
   ec2.terminateInstances({InstanceIds:[target.InstanceId]}, function(err, data) {
     if (err) {
-      slackNotifier("terminate", ('Error terminating ' + target.InstanceId))
+      slackNotifier("terminate", 'Error terminating ' + target.InstanceId)
       .finally(function(){
         return context.done(err, null);
       })
     }
 
     console.log('Instance %s terminated', target.InstanceId);
-    slackNotifier("terminate", ('Instance %s terminated', target.InstanceId))
+    slackNotifier("terminate", 'Instance ' + target.InstanceId + ' terminated')
       .finally(function(){
         return context.done(null, data);
       })
@@ -99,25 +99,27 @@ function randomIntFromInterval(min,max)
 function slackNotifier(type, message){
   var color;
   if ('type' == 'warning'){
-    var color = '#ffff00';
+    color = '#ffff00';
   }
   else{
-    var color = "#ff0000";
+    color = "#ff0000";
   }
-  var options = {
-    uri:llamaConfig.slackUrl,
-    method: "POST",
-    body:{
-        "username": "chaos-llama",
+  var body = {
+          "username": "chaos-llama",
           "icon_emoji": ":ghost:",
-          "text": "Terminating Instance",	
           "attachments": [
               {
                   "color": color,
-                  "text": instanceId
+                  "text": message
               }
-          ]}
-  }
+              ]};
+  var options = {
+    uri: llamaConfig.slackUrl,
+    method: "POST",
+    body:body,
+    json: true
+  };
+  console.log(options);
   if (typeof(llamaConfig.slackUrl) !== 'undefined' && llamaConfig.slackUrl){
     return rp(options);
   }else{
