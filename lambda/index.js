@@ -105,7 +105,7 @@ function slackNotifier(type, message){
     var color = "#ff0000";
   }
   var options = {
-    uri:url,
+    uri:llamaConfig.slackUrl,
     method: "POST",
     body:{
         "username": "chaos-llama",
