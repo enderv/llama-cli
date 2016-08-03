@@ -3,6 +3,7 @@
 
 var AWS = require('aws-sdk');
 var llamaConfig = require('./config.json');
+var rp = require('request-promise');
 
 AWS.config.region = llamaConfig.region || 'eu-west-1';
 
@@ -12,7 +13,10 @@ console.log('Chaos Llama starting up');
 if (llamaConfig.probability && event.InvokeType != "CommandLine") {
   if (randomIntFromInterval(1,100) >= llamaConfig.probability && llamaConfig.probability != 100) {
     console.log('Probability says it is not chaos time');
-    return context.done(null,null);
+    slackNotifier("warning", "Probability says it is not chaos time" )
+      .finally(function(){
+        return context.done(null, null);
+      })
   }
 }
 
@@ -57,7 +61,10 @@ else{
 
   if (!data || data.Reservations.length === 0) {
     console.log('No instances found, exiting.');
-    return context.done(null, null);
+    slackNotifier("warning", "No instances found, exiting" )
+      .finally(function(){
+        return context.done(null, null);
+      })
   }
 
   var candidates = [];
@@ -88,7 +95,10 @@ else{
 
   if (numInstances === 0) {
     console.log('No suitable instances found');
-    return context.done(null);
+    slackNotifier("warning", "No suitable instance found" )
+      .finally(function(){
+        return context.done(null);
+      })
   }
 
   var random = Math.floor(Math.random() * numInstances);
@@ -98,11 +108,17 @@ else{
 
   ec2.terminateInstances({InstanceIds:[target.InstanceId]}, function(err, data) {
     if (err) {
-      return context.done(err, null);
+      slackNotifier("terminate", 'Error terminating ' + target.InstanceId)
+      .finally(function(){
+        return context.done(err, null);
+      })
     }
 
     console.log('Instance %s terminated', target.InstanceId);
-    return context.done(null, data);
+    slackNotifier("terminate", 'Instance ' + target.InstanceId + ' terminated')
+      .finally(function(){
+        return context.done(null, data);
+      })
   });
 });
 }
@@ -111,4 +127,36 @@ else{
 function randomIntFromInterval(min,max)
 {
     return Math.floor(Math.random()*(max-min+1)+min);
+}
+
+function slackNotifier(type, message){
+  var color;
+  if ('type' == 'warning'){
+    color = '#ffff00';
+  }
+  else{
+    color = "#ff0000";
+  }
+  var body = {
+          "username": "chaos-llama",
+          "icon_emoji": ":ghost:",
+          "attachments": [
+              {
+                  "color": color,
+                  "text": message
+              }
+              ]};
+  var options = {
+    uri: llamaConfig.slackUrl,
+    method: "POST",
+    body:body,
+    json: true
+  };
+  console.log(options);
+  if (typeof(llamaConfig.slackUrl) !== 'undefined' && llamaConfig.slackUrl){
+    return rp(options);
+  }else{
+    return new Promise.resolve();
+  }
+    
 }
